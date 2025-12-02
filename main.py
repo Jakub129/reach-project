@@ -1,12 +1,16 @@
 # ________________ TODOs ________________
 """
-- import data to the plot
-- save/download the plot
-- change the plot scales: linear/log
-- light/dark mode?
-- improve the UI and visuals
-- Desmos features: zoom in/out, move around the plot, etc...
-- "Live" time animation of the data
+- Import data to the plot --> DONE
+--> Read data correctly and interpret into a suitable plot
+- Save/download the plot --> DONE
+- Change the plot scales: linear/log -> DONE
+- improve the UI and visuals: MENUS (settings?)
+- Desmos features: zoom in/out, move around the plot, etc... --> DONE
+- Line/marker properties: colour, width/size, etc... --> WORKING ON IT
+- Error bars: use AI confidence score?
+- plot types - bar, radar etc?
+- plot a theoretical equation?
+- "Live" time animtation of the data 
 """
 
 
@@ -15,10 +19,18 @@ import tkinter as tk
 from tkinter import ttk
 from tkinter import filedialog as fd
 from tkinter import colorchooser
+from tkinter import messagebox
+
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+import matplotlib.backends.backend_tkagg as tkagg
 import matplotlib.pyplot as plt
 from matplotlib import rcParams
 
+from sympy import Symbol, lambdify, N
+from sympy.parsing.latex import parse_latex 
+
+import numpy as np
+import pandas as pd
 
 
 # ________________ MAIN PROGRAM _______________
@@ -26,46 +38,46 @@ class App(tk.Tk):
     def __init__(self):
         super().__init__()
         self.title("Graphical Preview")
-        self.geometry("1080x720")
+        self.geometry("1366x768")
         self.setup_widgets()
 
 
     def setup_widgets(self):
-        self.grid_columnconfigure(0, weight=1)
-        self.grid_columnconfigure(1, weight=1)
-        self.grid_columnconfigure(2, weight=1)
-        self.grid_rowconfigure(0, weight=1)
-        self.grid_rowconfigure(1, weight=1)
-        self.grid_rowconfigure(2, weight=1)
-        self.grid_rowconfigure(3, weight=1)
-        self.grid_rowconfigure(4, weight=1)
-        self.grid_rowconfigure(5, weight=1)
-        self.grid_rowconfigure(6, weight=1)
+        ROWSPAN = 9
+        COLUMNSPAN = 3
+
+        for column in range(COLUMNSPAN):
+            self.grid_columnconfigure(column, weight=1)
+
+        for row in range(ROWSPAN):
+            self.grid_rowconfigure(row, weight=1)
+  
 
         self.fig, self.ax  = plt.subplots()
-        self.xdata, self.ydata = [x for x in range(-10, 10)], [x**2 for x in range(-10,10)]   
-        self.ax.plot(self.xdata, self.ydata)
+        # self.xdata, self.ydata = [x for x in range(-10, 10)], [x**2 for x in range(-10,10)]   
+        # self.line, = self.ax.plot(self.xdata, self.ydata)
 
         # Some default plot
         self.ax.set(title="Enter a title...", xlabel="x", ylabel="y")
 
         self.matplot_canvas = FigureCanvasTkAgg(self.fig, master=self)
         self.matplot_canvas.draw()
-        self.matplot_canvas.get_tk_widget().grid(row=0, column=0, rowspan=6, padx=10, pady=10, sticky="nsew")
+        self.matplot_canvas.get_tk_widget().grid(row=0, column=0, rowspan=(ROWSPAN-1), padx=5, pady=5, sticky="nsew")
+
 
         self.title_entry = EntryPlaceholder(self, placeholder="Plot Title: ")
         self.title_entry.grid(row=0, column=1, padx=10, pady=10, sticky="ew")
         self.title_button = ttk.Button(self, 
                                 text="Apply", 
                                 cursor="hand2",
-                                command=lambda: self.change_title()).grid(row=0, column=2, padx=10, pady=10, sticky="ew")
+                                command=self.change_title).grid(row=0, column=2, padx=10, pady=10, sticky="ew")
 
         self.xaxis_entry = EntryPlaceholder(self, placeholder="Label the x-axis: ")
         self.xaxis_entry.grid(row=1, column=1, padx=10, pady=10, sticky="ew")
         self.xaxis_button = ttk.Button(self, 
                                 text="Apply", 
                                 cursor="hand2",
-                                command=lambda: self.change_xaxis()).grid(row=1, column=2, padx=10, pady=10, sticky="ew")
+                                command=self.change_xaxis).grid(row=1, column=2, padx=10, pady=10, sticky="ew")
         
         self.yaxis_entry = EntryPlaceholder(self, placeholder="Label the y-axis: ")
         self.yaxis_entry.grid(row=2, column=1, padx=10, pady=10, sticky="ew")
@@ -103,16 +115,48 @@ class App(tk.Tk):
         self.colour_button = ttk.Button(self, 
                                 text="Change points colour", 
                                 cursor="hand2",
-                                command=lambda: self.change_colour()).grid(
+                                command=self.change_colour).grid(
             row=5, column=2, padx=10, pady=10, sticky="ew"
         )
+
+        self.filename = ""
+        self.file_button = ttk.Button(self, 
+                                text="Import a file", 
+                                cursor="hand2",
+                                command=self.select_file).grid(
+            row=6, column=1, padx=10, pady=10, sticky="ew"
+        )
+
+        self.scale_var = tk.DoubleVar()
+        self.line_width_bar = ttk.Scale(self, from_= 0, to=10, variable=self.scale_var, cursor="hand2").grid(
+            row=7, column=2, padx=10, pady=10, sticky="ew"
+        )
+
+        self.scale_button = ttk.Button(self, 
+                                text="Change line width", 
+                                cursor="hand2",
+                                command= self.change_line_width).grid(
+            row=6, column=2, padx=10, pady=10, sticky="ew"
+        )
+
+        self.line_width_options = [0, 1, 2, 3, 4, 5]
+        self.option = tk.StringVar(value=0)
+        self.option_menu = ttk.OptionMenu(self, self.option, *self.line_width_options).grid(
+            row=7, column=1, padx=10, pady=10, sticky="ew"
+        )
+
+
+        self.toolbar = tkagg.NavigationToolbar2Tk(self.matplot_canvas, self, pack_toolbar=False)
+        self.toolbar.update()
+        self.toolbar.grid(row=8, column=0)    
 
 
     def change_title(self):
         if self.title_entry.get() == self.title_entry.placeholder:
             self.ax.set_title("")
         else:
-            self.ax.set_title(self.title_entry.get())
+            self.fig_title = self.title_entry.get()
+            self.ax.set_title(self.fig_title)
         self.title_entry.delete(0, tk.END)
         self.title_entry.insert(0, self.title_entry.placeholder)
         self.title_entry["fg"] = self.title_entry.placeholder_colour
@@ -165,23 +209,87 @@ class App(tk.Tk):
 
     def show_points(self):
         if self.var_points.get() == 1:
-            rcParams["lines.marker"] = "o"
+            self.line.set_marker("o")
             self.matplot_canvas.draw()
         elif self.var_points.get() == 0:
-            rcParams["lines.marker"] = "none"
+            self.line.set_marker("")
             self.matplot_canvas.draw()
 
     def change_colour(self):
         self.colour_code = colorchooser.askcolor(title="Choose colour")
-        #rcParams["lines.color"] = self.colour_code[1]
-        self.ax.set_prop_cycle(color=[self.colour_code[1]])
+        self.line.set_color(self.colour_code[1])
         self.matplot_canvas.draw()
 
+
+    def select_file(self):
+        filetypes = (
+            ('All files', '*.*'),
+            ('text files', '*.txt')
+        )
+        #self.fig.clear()
+        self.ax.cla()
+
+        self.filename = fd.askopenfilename(
+            title='Open a file',
+            initialdir='%USERPROFILE%\\source\\repos',
+            filetypes=filetypes)
+        
+        df = pd.read_csv(self.filename, header=10)
+        date = df["Date"]
+        time = df["Time"]
+        etime = df["Elapsed Time (secs)"]
+        value = df.iloc[:,-1:]
+        self.xdata = etime.tolist()
+        
+
+        if value.columns[0] == "Results Text":
+            self.ax.set_ylabel("Text Frequency")
+            text_count = df["Results Text"].value_counts()
+            text_count = text_count[text_count > 1]
+            text_count.plot(kind="bar")
+
+
+        if value.columns[0] == "test-AverageRGB":
+            self.ax.set_ylabel("RGB values")
+
+            red = df['test-AverageRGB'].apply(lambda x: int(x.split(',')[0])).tolist()
+            green = df['test-AverageRGB'].apply(lambda x: int(x.split(',')[1])).tolist()
+            blue = df['test-AverageRGB'].apply(lambda x: int(x.split(',')[2])).tolist()
+
+            self.line = self.ax.plot(self.xdata, red, label="Red", color="red")
+            self.ax.plot(self.xdata, green, label="Green", color="green")
+            self.ax.plot(self.xdata, blue, label="Blue", color="blue")
+            self.ax.set_xlabel("Elapsed Time (secs)")
+            self.change_xaxis
+
+        if value.columns[0] == "colour change alert-AverageRGB":
+            self.ax.set_ylabel("RGB values")
+
+            red = df['colour change alert-AverageRGB'].apply(lambda x: int(x.split(',')[0])).tolist()
+            green = df['colour change alert-AverageRGB'].apply(lambda x: int(x.split(',')[1])).tolist()
+            blue = df['colour change alert-AverageRGB'].apply(lambda x: int(x.split(',')[2])).tolist()
+    
+            #self.line = self.ax.plot(self.xdata, red, label="Red", color="red")
+            self.ax.plot(self.xdata, red, label="red", color="red")
+            self.ax.plot(self.xdata, green, label="Green", color="green")
+            self.ax.plot(self.xdata, blue, label="Blue", color="blue")
+            self.ax.set_xlabel("Elapsed Time (secs)")
+            
+        self.matplot_canvas.draw()
+        
+
+    def change_line_width(self):
+        self.line.set_linewidth(f"{self.scale_var.get()}")
+        self.matplot_canvas.draw()
+
+
+    def save_plot(self):
+        self.fig.savefig(self.save_entry.get())
+        self.save_entry.delete(0, "end")
 
     def on_close(self):
         self.quit()
         self.destroy()
-
 
 
 class EntryPlaceholder(tk.Entry):
