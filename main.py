@@ -54,8 +54,8 @@ class App(tk.Tk):
   
 
         self.fig, self.ax  = plt.subplots()
-        # self.xdata, self.ydata = [x for x in range(-10, 10)], [x**2 for x in range(-10,10)]   
-        # self.line, = self.ax.plot(self.xdata, self.ydata)
+        self.xdata, self.ydata = [x for x in range(-10, 10)], [x**2 for x in range(-10,10)]   
+        self.line, = self.ax.plot(self.xdata, self.ydata)
 
         # Some default plot
         self.ax.set(title="Enter a title...", xlabel="x", ylabel="y")
