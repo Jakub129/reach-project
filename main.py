@@ -6,6 +6,7 @@
 - light/dark mode?
 - improve the UI and visuals
 - Desmos features: zoom in/out, move around the plot, etc...
+- "Live" time animation of the data
 """
 
 
